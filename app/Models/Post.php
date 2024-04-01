@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\File;
+use Spatie\YamlFrontMatter\YamlFrontMatter;
 
 class Post
 {
@@ -23,21 +24,22 @@ class Post
 
     public static function all()
     {
-        $files = File::files(resource_path("posts/"));
+        return collect(File::files(resource_path("posts/")))
+            ->map(function ($file) {
+                $document = YamlFrontMatter::parseFile($file);
 
-        return array_map(function ($file) {
-            return $file->getContents();
-        }, $files);
+                return new Post(
+                    $document->title,
+                    $document->excerpt,
+                    $document->date,
+                    $document->body(),
+                    $document->slug,
+                );
+            });
     }
 
     public static function find($slug)
     {
-        if (!file_exists($path = resource_path("posts/{$slug}.html"))) {
-            return redirect('/');
-        }
-
-        return cache()->remember("posts.{$slug}", 1200, function () use ($path) {
-            return file_get_contents($path);
-        });
+        return static::all()->firstWhere('slug', $slug);
     }
 }
